@@ -1,7 +1,12 @@
 storage: none
+
+framework: auto-detect
+
 source https://api.nuget.org/v3/index.json
 
 clitool dotnet-xunit
+
+nuget FSharp.Core redirects: force
 nuget Microsoft.AspNetCore.Cors
 nuget Microsoft.AspNetCore.Hosting
 nuget Microsoft.AspNetCore.Diagnostics

@@ -8,3 +8,4 @@ Microsoft.Extensions.Logging.Debug
 Microsoft.Extensions.DependencyInjection
 xunit
 xunit.runner.visualstudio
+FSharp.Core
