@@ -18,7 +18,7 @@ let webApp =
         subRoute "/api"
             (choose [
                 GET >=> choose [
-                    route "/hello" >=> handleGetHello
+                    route "/send-message" >=> handleSendMessage (fun _ _ -> task { return Ok ()})
                 ]
             ])
         setStatusCode 404 >=> text "Not Found" ]
@@ -57,14 +57,37 @@ let configureLogging (builder : ILoggingBuilder) =
     let filter (l : LogLevel) = l.Equals LogLevel.Error
     builder.AddFilter(filter).AddConsole().AddDebug() |> ignore
 
-[<EntryPoint>]
-let main _ =
+let startWebServer () =
     WebHostBuilder()
         .UseKestrel()
         .UseIISIntegration()
-        .Configure(Action<IApplicationBuilder> configureApp)
+        .Configure(Action<IApplicationBuilder>(configureApp))
         .ConfigureServices(configureServices)
         .ConfigureLogging(configureLogging)
         .Build()
-        .Run()
+        .RunAsync()
+
+open Orleankka
+open Orleankka.Client
+open Orleankka.FSharp
+
+//let actorSystem () =
+    // ActorSystem
+    //     .Configure()
+    //     .Playground()
+    //     .Register(Assembly.GetExecutingAssembly())
+    //     .Done()
+
+    // let sb = new SiloHostBuilder()
+    // sb.ConfigureOrleankka() |> ignore
+
+    // let host = sb.Build()
+    // host, host.StartAsync()
+
+[<EntryPoint>]
+let main _ =
+    async {
+        do! startWebServer () |> Async.AwaitTask
+    } |> Async.RunSynchronously
+
     0

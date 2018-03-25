@@ -17,6 +17,7 @@ nuget Microsoft.Extensions.Logging.Debug
 nuget Microsoft.Extensions.DependencyInjection
 nuget Giraffe
 nuget Microsoft.NET.Test.Sdk
+nuget Orleankka.FSharp.Runtime prerelease
 nuget xunit
 nuget xunit.runner.visualstudio
 nuget Microsoft.AspNetCore.TestHost
