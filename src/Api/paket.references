@@ -8,4 +8,8 @@ Microsoft.Extensions.Logging.Debug
 Microsoft.Extensions.DependencyInjection
 Giraffe
 FSharp.Core
+Orleankka
+Orleankka.Runtime
+Orleankka.FSharp
 Orleankka.FSharp.Runtime
+Microsoft.Orleans.Server

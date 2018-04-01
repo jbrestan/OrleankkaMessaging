@@ -9,6 +9,7 @@
     <Compile Include="Models.fs" />
     <Compile Include="HttpHandlers.fs" />
     <Compile Include="NotificationActor.fs" />
+    <Compile Include="SampleClusterConfig.fs" />
     <Compile Include="Program.fs" />
     <None Include="web.config" />
   </ItemGroup>

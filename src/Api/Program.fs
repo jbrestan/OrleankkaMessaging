@@ -1,6 +1,7 @@
 module Api.App
 
 open System
+open System.Reflection
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Cors.Infrastructure
 open Microsoft.AspNetCore.Hosting
@@ -69,24 +70,37 @@ let startWebServer () =
 
 open Orleankka
 open Orleankka.Client
+open Orleankka.Cluster
 open Orleankka.FSharp
+open Orleans.Hosting
 
-//let actorSystem () =
-    // ActorSystem
-    //     .Configure()
-    //     .Playground()
-    //     .Register(Assembly.GetExecutingAssembly())
-    //     .Done()
+open FSharp.Control.Tasks
 
-    // let sb = new SiloHostBuilder()
-    // sb.ConfigureOrleankka() |> ignore
+let host () = task {
+    let sb = new SiloHostBuilder()
+    sb.AddAssembly(Assembly.GetExecutingAssembly())
+    sb.ConfigureOrleankka() |> ignore
 
-    // let host = sb.Build()
-    // host, host.StartAsync()
+    return! sb.Start()
+}
+let client (host: ISiloHost) = host.Connect()
+
+open Api.Notifications
+
+let demo () = task {
+    use! h = host ()
+    let! client = client h
+
+    let system = client.ActorSystem()
+    let actor = ActorSystem.typedActorOf<INotificationQueue, NotificationMessage>(system, "demo-queue")
+    do! actor <! Send "yo!"
+}
 
 [<EntryPoint>]
 let main _ =
     async {
+        do! demo () |> Async.AwaitTask
+
         do! startWebServer () |> Async.AwaitTask
     } |> Async.RunSynchronously
 

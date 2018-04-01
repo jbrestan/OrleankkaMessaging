@@ -7,16 +7,19 @@ open Orleankka.FSharp
 type NotificationMessage = 
     | Send of string
 
+type INotificationQueue =
+    IActorGrain<NotificationMessage>
+
 type NotificationQueue() =
     inherit ActorGrain()
-    interface IActorGrain<NotificationMessage>
+    interface INotificationQueue
 
     override this.Receive (messageObj: obj) = task {
         match messageObj with
-        | :? NotificationMessage as msg -> 
+        | :? NotificationMessage as msg ->
             match msg with
             | Send text ->
                 printfn "Received: %s" text
                 return none ()
-        |_ -> return unhandled()            
+        |_ -> return unhandled()
     }
