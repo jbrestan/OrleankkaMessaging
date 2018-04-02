@@ -8,7 +8,7 @@ type NotificationMessage =
     | Send of string
 
 type INotificationQueue =
-    IActorGrain<NotificationMessage>
+    inherit IActorGrain<NotificationMessage>
 
 type NotificationQueue() =
     inherit ActorGrain()
