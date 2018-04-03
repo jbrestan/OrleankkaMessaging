@@ -2,6 +2,7 @@ module Api.App
 
 open System
 open System.Reflection
+open System.Text.RegularExpressions
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Cors.Infrastructure
 open Microsoft.AspNetCore.Hosting
@@ -85,6 +86,57 @@ let startWebServer actorSystem =
         .Build()
         .RunAsync()
 
+let sscanf (pf:PrintfFormat<_,_,_,_,'t>) s : 't =
+    let formatStr = pf.Value
+    let constants = formatStr.Split([|"%s"|], StringSplitOptions.None)
+    let regex = Regex("^" + String.Join("(.*?)", constants |> Array.map Regex.Escape) + "$")
+    let matches =
+        regex.Match(s).Groups
+        |> Seq.cast<Group>
+        |> Seq.skip 1
+        |> Seq.map (fun g -> g.Value |> box)
+    FSharp.Reflection.FSharpValue.MakeTuple(matches |> Seq.toArray, typeof<'t>) :?> 't
+
+let getQueueSubscription actorSystem clientId : StreamRef<string>=
+    ActorSystem.streamOf (actorSystem, "sms", clientId)
+
+let handleUserInput actorSystem = async {
+    printfn """
+Usage:
+    subscribe <clientId>    - add client notification subscription. If already existing, old will be unsubscribed.
+    unsubscribe <clientId>  - remove client notification subscription.
+"""
+
+    let rec loop (clients: Map<string, StreamSubscription>) = async {
+        match sscanf "%s %s" (Console.ReadLine()) with
+        | "subscribe", clientId ->
+            match Map.tryFind clientId clients with
+            | Some subscription ->
+                printfn "Removing existing client subscription."
+                do! subscription.Unsubscribe() |> Async.AwaitTask
+            | None -> ()
+
+            let! subscription = async {
+                let subRef = getQueueSubscription actorSystem clientId
+                return!
+                    subRef.Subscribe(printfn "Client %s received a message: %s" clientId)
+                    |> Async.AwaitTask
+            }
+            printfn "Client %s has been subscribed" clientId
+            return! loop <| Map.add clientId subscription clients
+
+        | "unsubscribe", clientId ->
+            printfn "Client %s has been unsubscribed" clientId
+            return! loop <| Map.remove clientId clients
+
+        | unrecognized ->
+            printfn "Unrecognized command"
+            return! loop clients
+    }
+
+    return! loop Map.empty
+}
+
 [<EntryPoint>]
 let main _ =
 
@@ -94,12 +146,17 @@ let main _ =
         let! actorSystem = async {
             let! host = getStartedHost ()
             return! getActorSystem host
-        }        
+        }
 
         printfn "Orleans silo started."
         printfn "Starting web API server..."
 
-        do! startWebServer actorSystem |> Async.AwaitTask
+        let! serverComplete = startWebServer actorSystem |> Async.AwaitTask |> Async.StartChild
+
+        printfn "Starting interactive client loop..."
+        do! handleUserInput actorSystem
+
+        do! serverComplete
     }
 
     Async.RunSynchronously(app)

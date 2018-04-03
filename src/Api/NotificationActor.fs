@@ -19,7 +19,9 @@ type NotificationQueue() =
         | :? NotificationMessage as msg ->
             match msg with
             | Send text ->
-                printfn "Received: %s" text
+                printfn "Grain %s received a message: %s" this.Path.Id text
+                let stream = ActorSystem.streamOf(this.System, "sms", this.Path.Id)
+                do! stream.Push(text)
                 return none ()
         |_ -> return unhandled()
     }
