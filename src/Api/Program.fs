@@ -126,6 +126,11 @@ Usage:
             return! loop <| Map.add clientId subscription clients
 
         | "unsubscribe", clientId ->
+            match Map.tryFind clientId clients with
+            | Some subscription ->
+                do! subscription.Unsubscribe() |> Async.AwaitTask
+            | None -> ()
+
             printfn "Client %s has been unsubscribed" clientId
             return! loop <| Map.remove clientId clients
 
