@@ -1,0 +1,7 @@
+POST http://localhost:5000/api/send-message HTTP/1.1
+content-type: application/json
+
+{
+    "clientId" : "Alice",
+    "text" : "Hi, Alice!"
+}

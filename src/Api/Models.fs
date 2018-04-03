@@ -3,12 +3,12 @@ namespace Api.Models
 [<CLIMutable>]
 type Message =
     {
-        ClientId : string
-        Text : string
+        clientId : string
+        text : string
     }
 
 [<CLIMutable>]
 type Response =
     {
-        MessageId : string
+        messageId : string
     }

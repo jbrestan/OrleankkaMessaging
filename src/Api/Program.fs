@@ -7,34 +7,51 @@ open Microsoft.AspNetCore.Cors.Infrastructure
 open Microsoft.AspNetCore.Hosting
 open Microsoft.Extensions.Logging
 open Microsoft.Extensions.DependencyInjection
+
 open Giraffe
+open Orleankka
+open Orleankka.Client
+open Orleankka.Cluster
+open Orleankka.FSharp
+
 open Api.HttpHandlers
+open Api.Notifications
 
-// ---------------------------------
-// Web app
-// ---------------------------------
+// Opened after Giraffe to shadow its `TaskBuilder` implementation.
+open FSharp.Control.Tasks
 
-let webApp =
+let getStartedHost () = async {
+    let sb = Orleans.Hosting.SiloHostBuilder()
+    sb.AddAssembly(Assembly.GetExecutingAssembly())
+    sb.ConfigureOrleankka() |> ignore
+
+    return! sb.Start() |> Async.AwaitTask
+}
+
+let getActorSystem (host: Orleans.Hosting.ISiloHost) = async {
+    let! client = host.Connect() |> Async.AwaitTask
+    return client.ActorSystem()
+}
+
+let sendNotification actorSystem messageId (message: Api.Models.Message) = task {
+    let queue = ActorSystem.typedActorOf<INotificationQueue, NotificationMessage>(actorSystem, message.clientId)
+    do! queue <! Send message.text
+    return Ok ()
+}
+
+let webApp actorSystem =
     choose [
         subRoute "/api"
             (choose [
-                GET >=> choose [
-                    route "/send-message" >=> handleSendMessage (fun _ _ -> task { return Ok ()})
+                POST >=> choose [
+                    route "/send-message" >=> handleSendMessage (sendNotification actorSystem)
                 ]
             ])
         setStatusCode 404 >=> text "Not Found" ]
 
-// ---------------------------------
-// Error handler
-// ---------------------------------
-
 let errorHandler (ex : Exception) (logger : ILogger) =
     logger.LogError(EventId(), ex, "An unhandled exception has occurred while executing the request.")
     clearResponse >=> setStatusCode 500 >=> text ex.Message
-
-// ---------------------------------
-// Config and Main
-// ---------------------------------
 
 let configureCors (builder : CorsPolicyBuilder) =
     builder.WithOrigins("http://localhost:8080")
@@ -42,13 +59,13 @@ let configureCors (builder : CorsPolicyBuilder) =
            .AllowAnyHeader()
            |> ignore
 
-let configureApp (app : IApplicationBuilder) =
+let configureApp actorSystem (app : IApplicationBuilder) =
     let env = app.ApplicationServices.GetService<IHostingEnvironment>()
     (match env.IsDevelopment() with
     | true  -> app.UseDeveloperExceptionPage()
     | false -> app.UseGiraffeErrorHandler errorHandler)
         .UseCors(configureCors)
-        .UseGiraffe(webApp)
+        .UseGiraffe(webApp actorSystem)
 
 let configureServices (services : IServiceCollection) =
     services.AddCors()    |> ignore
@@ -58,50 +75,33 @@ let configureLogging (builder : ILoggingBuilder) =
     let filter (l : LogLevel) = l.Equals LogLevel.Error
     builder.AddFilter(filter).AddConsole().AddDebug() |> ignore
 
-let startWebServer () =
+let startWebServer actorSystem =
     WebHostBuilder()
         .UseKestrel()
         .UseIISIntegration()
-        .Configure(Action<IApplicationBuilder>(configureApp))
+        .Configure(Action<IApplicationBuilder>(configureApp actorSystem))
         .ConfigureServices(configureServices)
         .ConfigureLogging(configureLogging)
         .Build()
         .RunAsync()
 
-open Orleankka
-open Orleankka.Client
-open Orleankka.Cluster
-open Orleankka.FSharp
-open Orleans.Hosting
-
-open FSharp.Control.Tasks
-
-let host () = task {
-    let sb = new SiloHostBuilder()
-    sb.AddAssembly(Assembly.GetExecutingAssembly())
-    sb.ConfigureOrleankka() |> ignore
-
-    return! sb.Start()
-}
-let client (host: ISiloHost) = host.Connect()
-
-open Api.Notifications
-
-let demo () = task {
-    use! h = host ()
-    let! client = client h
-
-    let system = client.ActorSystem()
-    let actor = ActorSystem.typedActorOf<INotificationQueue, NotificationMessage>(system, "demo-queue")
-    do! actor <! Send "yo!"
-}
-
 [<EntryPoint>]
 let main _ =
-    async {
-        do! demo () |> Async.AwaitTask
 
-        do! startWebServer () |> Async.AwaitTask
-    } |> Async.RunSynchronously
+    let app = async {
+        printfn "Starting Orleans silo, this may take several seconds..."
+
+        let! actorSystem = async {
+            let! host = getStartedHost ()
+            return! getActorSystem host
+        }        
+
+        printfn "Orleans silo started."
+        printfn "Starting web API server..."
+
+        do! startWebServer actorSystem |> Async.AwaitTask
+    }
+
+    Async.RunSynchronously(app)
 
     0

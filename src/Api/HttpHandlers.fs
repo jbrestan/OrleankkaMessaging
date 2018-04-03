@@ -16,7 +16,7 @@ module HttpHandlers =
                     match result with
                     | Ok _ ->
                         let response = {
-                            MessageId = "Hello world, from Giraffe!"
+                            messageId = "Hello world, from Giraffe!"
                         }
                         return! json response next ctx
                     | Error errorText ->
