@@ -24,7 +24,7 @@ open FSharp.Control.Tasks
 let getStartedHost () = async {
     let sb = Orleans.Hosting.SiloHostBuilder()
     sb.AddAssembly(Assembly.GetExecutingAssembly())
-    sb.ConfigureOrleankka() |> ignore
+    sb.UseOrleankka() |> ignore
 
     return! sb.Start() |> Async.AwaitTask
 }

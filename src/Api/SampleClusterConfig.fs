@@ -19,6 +19,7 @@ open Orleans.Storage
 module Shared =
 
     let DemoClusterId = "localhost-demo"
+    let DemoServiceId = "orleankka-messaging-app"
     let LocalhostSiloPort = 11111
     let LocalhostGatewayPort = 30000
     let LocalhostSiloAddress = IPAddress.Loopback
@@ -26,7 +27,7 @@ module Shared =
     type ISiloHostBuilder with
   
       member sb.ConfigureDemoClustering() =    
-        sb.Configure<ClusterOptions>(fun (options:ClusterOptions) -> options.ClusterId <- DemoClusterId) |> ignore
+        sb.Configure<ClusterOptions>(fun (options:ClusterOptions) -> options.ClusterId <- DemoClusterId; options.ServiceId <- DemoServiceId) |> ignore
         sb.UseDevelopmentClustering(fun (options:DevelopmentClusterMembershipOptions) -> options.PrimarySiloEndpoint <- IPEndPoint(LocalhostSiloAddress, LocalhostSiloPort)) |> ignore
         sb.ConfigureEndpoints(LocalhostSiloAddress, LocalhostSiloPort, LocalhostGatewayPort) |> ignore
     
@@ -42,7 +43,7 @@ module Shared =
         sb.UseInMemoryReminderService() |> ignore
 
         sb.ConfigureApplicationParts(fun x -> x.AddApplicationPart(typeof<MemoryGrainStorage>.Assembly) |> ignore) |> ignore
-        
+
         task {
             let host = sb.Build()
             do! host.StartAsync()
@@ -52,7 +53,7 @@ module Shared =
     type IClientBuilder with
   
       member cb.ConfigureDemoClustering() =
-        cb.Configure<ClusterOptions>(fun (options:ClusterOptions) -> options.ClusterId <- DemoClusterId) |> ignore
+        cb.Configure<ClusterOptions>(fun (options:ClusterOptions) -> options.ClusterId <- DemoClusterId; options.ServiceId <- DemoServiceId) |> ignore
         cb.UseStaticClustering(fun (options:StaticGatewayListProviderOptions) -> options.Gateways.Add(IPEndPoint(LocalhostSiloAddress, LocalhostGatewayPort).ToGatewayUri())) |> ignore
         
       member cb.AddAssembly(assembly:Assembly) =
@@ -65,7 +66,7 @@ module Shared =
         let cb = new ClientBuilder()
         cb.ConfigureDemoClustering()
         cb.AddSimpleMessageStreamProvider("sms") |> ignore
-        cb.ConfigureOrleankka() |> ignore
+        cb.UseOrleankka() |> ignore
 
         cb.ConfigureApplicationParts(
           fun x -> let apm = host.Services.GetRequiredService<IApplicationPartManager>()
